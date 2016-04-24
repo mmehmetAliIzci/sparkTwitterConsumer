@@ -20,7 +20,7 @@ public class Application {
 
     public static String zkQuorum = "localhost:2181"; //is a list of one or more zookeeper servers that make quorum
     public static String group = "spark-consumer-group";   //<group> is the name of kafka consumer group
-    public static String topic = "test";
+    public static String topic = "twitter-topic";
     public static Integer numThreads = 2; // is the number of threads the kafka consumer should use
 
     private static final Pattern SPACE = Pattern.compile(" ");
@@ -33,7 +33,7 @@ public class Application {
                 .set("spark.driver.allowMultipleContexts", "true")
                 .setMaster("local[2]");
         // create streaming context
-        JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(10));
+        JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(1));
 
         // Checkpointing must be enabled to use the updateStateByKey function.
         //jssc.checkpoint("/tmp/log-analyzer-streaming");
@@ -44,6 +44,33 @@ public class Application {
         JavaPairReceiverInputDStream<String, String> messages =
                 KafkaUtils.createStream(jssc, zkQuorum, group, topicMap);
 
+        JavaDStream<String> json = messages.map(
+                new Function<Tuple2<String, String>, String>() {
+                    private static final long serialVersionUID = 42l;
+                    @Override
+                    public String call(Tuple2<String, String> message) {
+                        System.out.println("ben geldim");
+                        return message._2();
+                    }
+                }
+        );
+
+        JavaPairDStream<Long, String> tweets = json.mapToPair(
+                new TwitterFilterFunction());
+
+        JavaPairDStream<Long, String> filtered = tweets.filter(
+                new Function<Tuple2<Long, String>, Boolean>() {
+                    private static final long serialVersionUID = 42l;
+                    @Override
+                    public Boolean call(Tuple2<Long, String> tweet) {
+                        return tweet != null;
+                    }
+                }
+        );
+        JavaDStream<Tuple2<Long, String>> tweetsFiltered = filtered.map(
+                new TextFilterFunction());
+
+/*
         // Get lines
         JavaDStream<String> lines = messages.map(new Function<Tuple2<String, String>, String>() {
             @Override
@@ -79,13 +106,15 @@ public class Application {
                         return v1 + v2;
                     }
                 }, Durations.seconds(100), Durations.seconds(10));
+*/
 
         // The processing can be manually stopped using jssc.stop();
         // just stop spark context jssc.stop(false);
 
         // Print the first ten elements of each RDD generated in this DStream to the console
-        wordCounts.print();
-        recentWordCounts.print();
+
+        tweetsFiltered.foreachRDD(new PrinterFunction());
+        //recentWordCounts.print();
         // Start the computation
         jssc.start();
         jssc.awaitTermination();
