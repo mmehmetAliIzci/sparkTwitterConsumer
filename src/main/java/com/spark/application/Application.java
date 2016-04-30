@@ -7,10 +7,15 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 import org.apache.spark.api.java.function.*;
+import org.apache.spark.mllib.clustering.StreamingKMeans;
+import org.apache.spark.mllib.linalg.Vector;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.State;
 import org.apache.spark.streaming.StateSpec;
 import org.apache.spark.streaming.api.java.*;
+import org.apache.log4j.*;
+
+
 import scala.Tuple2;
 
 import org.apache.spark.SparkConf;
@@ -33,7 +38,9 @@ public class Application {
                 .set("spark.driver.allowMultipleContexts", "true")
                 .setMaster("local[2]");
         // create streaming context
-        JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(1));
+        JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(10));
+        Logger logger = Logger.getRootLogger();
+        logger.setLevel(Level.ERROR);
 
         // Checkpointing must be enabled to use the updateStateByKey function.
         //jssc.checkpoint("/tmp/log-analyzer-streaming");
@@ -49,14 +56,13 @@ public class Application {
                     private static final long serialVersionUID = 42l;
                     @Override
                     public String call(Tuple2<String, String> message) {
-                        System.out.println("ben geldim");
                         return message._2();
                     }
                 }
         );
 
         JavaPairDStream<Long, String> tweets = json.mapToPair(
-                new TwitterFilterFunction());
+                new TwitterTokenizer());
 
         JavaPairDStream<Long, String> filtered = tweets.filter(
                 new Function<Tuple2<Long, String>, Boolean>() {
@@ -69,6 +75,7 @@ public class Application {
         );
         JavaDStream<Tuple2<Long, String>> tweetsFiltered = filtered.map(
                 new TextFilterFunction());
+
 
 /*
         // Get lines
@@ -112,7 +119,6 @@ public class Application {
         // just stop spark context jssc.stop(false);
 
         // Print the first ten elements of each RDD generated in this DStream to the console
-
         tweetsFiltered.foreachRDD(new PrinterFunction());
         //recentWordCounts.print();
         // Start the computation

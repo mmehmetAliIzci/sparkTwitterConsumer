@@ -26,6 +26,6 @@ class SendToSysOut implements VoidFunction<Tuple2<Long, String>>{
 
     @Override
     public void call(Tuple2<Long, String> tweet) throws Exception {
-        System.out.println(tweet);
+        //System.out.println(tweet);
     }
 }

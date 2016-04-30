@@ -29,18 +29,17 @@ public class TwitterFilterFunction
             JsonNode root = mapper.readValue(tweet, JsonNode.class);
             long id;
             String text;
-/*            if (root.get("lang") != null &&
-                    "en".equals(root.get("lang").textValue()))
+            if (root.get("lang") != null && "en".equals(root.get("lang").textValue()))
             {
                 if (root.get("id") != null && root.get("text") != null)
-                {*/
+                {
                     id = root.get("id").longValue();
                     text = root.get("text").textValue();
                     return new Tuple2<Long, String>(id, text);
-/*                }
+                }
                 return null;
             }
-            return null;*/
+            return null;
         }
         catch (IOException ex)
         {
