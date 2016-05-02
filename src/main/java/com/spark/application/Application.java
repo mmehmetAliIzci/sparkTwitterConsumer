@@ -1,17 +1,17 @@
 package com.spark.application;
 
-import java.util.Arrays;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Optional;
+import java.util.*;
 import java.util.regex.Pattern;
 
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.*;
 import org.apache.spark.mllib.clustering.StreamingKMeans;
 import org.apache.spark.mllib.linalg.Vector;
+import org.apache.spark.mllib.linalg.Vectors;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.State;
 import org.apache.spark.streaming.StateSpec;
+import org.apache.spark.streaming.Time;
 import org.apache.spark.streaming.api.java.*;
 import org.apache.log4j.*;
 
@@ -29,6 +29,7 @@ public class Application {
     public static Integer numThreads = 2; // is the number of threads the kafka consumer should use
 
     private static final Pattern SPACE = Pattern.compile(" ");
+    static StreamingKMeans model = new StreamingKMeans();
 
 
     public static void main(String[] args) {
@@ -61,6 +62,10 @@ public class Application {
                 }
         );
 
+
+        /*
+        Commented the Normal json => (id,tweetText)
+
         JavaPairDStream<Long, String> tweets = json.mapToPair(
                 new TwitterTokenizer());
 
@@ -73,8 +78,22 @@ public class Application {
                     }
                 }
         );
+
+        Commented because we dont need any filters FOR NOW.
+        We may use json two times 1-> TweetToVector 2->TwitterTokenizer
+
         JavaDStream<Tuple2<Long, String>> tweetsFiltered = filtered.map(
-                new TextFilterFunction());
+                new TextFilterFunction());*/
+
+        JavaDStream<Vector> tweetsVectorized = json.map(
+                new TweetToVector());
+
+
+        model.setDecayFactor(0.5);
+        model.setK(2);
+        model.setRandomCenters(5, 100.0,2);
+        model.trainOn(tweetsVectorized);
+        
 
 
 /*
@@ -118,8 +137,15 @@ public class Application {
         // The processing can be manually stopped using jssc.stop();
         // just stop spark context jssc.stop(false);
 
-        // Print the first ten elements of each RDD generated in this DStream to the console
-        tweetsFiltered.foreachRDD(new PrinterFunction());
+        Timer timer = new Timer();
+        timer.schedule(new ModelPrinterFunction(), 0, 10000);
+        //tweetsFiltered.foreachRDD(new PrinterFunction());
+        tweetsVectorized.foreachRDD(new Function2<JavaRDD<Vector>, Time, Void>() {
+            @Override
+            public Void call(JavaRDD<Vector> vectorJavaRDD, Time time) throws Exception {
+                return null;
+            }
+        });
         //recentWordCounts.print();
         // Start the computation
         jssc.start();

@@ -2,11 +2,13 @@ package com.spark.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.hadoop.mapreduce.v2.app.webapp.App;
 import org.apache.log4j.Logger;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
+import org.apache.spark.mllib.clustering.StreamingKMeans;
 import org.apache.spark.mllib.linalg.Vector;
 import org.apache.spark.mllib.linalg.Vectors;
-import scala.Tuple2;
 
 import java.io.IOException;
 import java.text.ParseException;
@@ -15,14 +17,14 @@ import java.text.ParseException;
  * Created by mali on 29.04.2016.
  */
 
-public class TwitterTokenizer
-        implements PairFunction<String, Long, String>
+public class TweetToVector
+        implements Function<String, Vector>
 {
     private static final long serialVersionUID = 42l;
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Override
-    public Tuple2<Long, String> call(String tweet)
+    public Vector call(String tweet)
     {
         try
         {
@@ -40,23 +42,25 @@ public class TwitterTokenizer
             {
                 if (root.get("id") != null && root.get("text") != null)
                 {*/
-                    JsonNode user = root.get("user");
-                    user_created_age = TwitterDateParser.parseTwitterUTC(user.get("created_at").textValue());
-                    statuses_count = user.get("statuses_count").intValue();
-                    followers_ratio = (user.get("followers_count").floatValue() +1) / (user.get("friends_count").floatValue() + 1);
-                    try{
-                        description_lenght = user.get("description").textValue().length();
-                    }catch (NullPointerException e){
-                        System.out.println("Exception !" + user.toString());
-                    }
-                    text = root.get("text").textValue();
-                    text_lenght =text.length();
+            JsonNode user = root.get("user");
+            user_created_age = TwitterDateParser.parseTwitterUTC(user.get("created_at").textValue());
+            statuses_count = user.get("statuses_count").intValue();
+            followers_ratio = (user.get("followers_count").floatValue() +1) / (user.get("friends_count").floatValue() + 1);
+            try{
+                description_lenght = user.get("description").textValue().length();
+            }catch (NullPointerException e){
+              //  System.out.println("Exception !" + user.toString());
+            }
+            text = root.get("text").textValue();
+            text_lenght =text.length();
 
-                    Vector dv = Vectors.dense(text_lenght,description_lenght,followers_ratio,statuses_count,user_created_age);
-                    System.out.println("Beni Bırak" +dv);
-                    id = root.get("id").longValue();
+            Vector dv = Vectors.dense(text_lenght,description_lenght,followers_ratio,statuses_count,user_created_age);
+            //System.out.println("Beni Bırak" +dv);
+            id = root.get("id").longValue();
 
-                    return new Tuple2<Long, String>(id, text);
+
+
+            return dv;
                /* }
                 return null;
             }
