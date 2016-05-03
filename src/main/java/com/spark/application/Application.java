@@ -7,10 +7,7 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.*;
 import org.apache.spark.mllib.clustering.StreamingKMeans;
 import org.apache.spark.mllib.linalg.Vector;
-import org.apache.spark.mllib.linalg.Vectors;
 import org.apache.spark.streaming.Durations;
-import org.apache.spark.streaming.State;
-import org.apache.spark.streaming.StateSpec;
 import org.apache.spark.streaming.Time;
 import org.apache.spark.streaming.api.java.*;
 import org.apache.log4j.*;
@@ -39,7 +36,7 @@ public class Application {
                 .set("spark.driver.allowMultipleContexts", "true")
                 .setMaster("local[2]");
         // create streaming context
-        JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(10));
+        JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(4));
         Logger logger = Logger.getRootLogger();
         logger.setLevel(Level.ERROR);
 
@@ -91,9 +88,10 @@ public class Application {
 
         model.setDecayFactor(0.5);
         model.setK(2);
-        model.setRandomCenters(5, 100.0,2);
-        model.trainOn(tweetsVectorized);
-        
+        //.setRandomCenters(numDimensions, 0.0) on http://spark.apache.org/docs/latest/mllib-clustering.html#streaming-k-means
+        model.setRandomCenters(6, 100.0,2);
+        //model.trainOn(tweetsVectorized);
+        JavaDStream<Integer> results = model.predictOn(tweetsVectorized);
 
 
 /*
@@ -138,13 +136,23 @@ public class Application {
         // just stop spark context jssc.stop(false);
 
         Timer timer = new Timer();
-        timer.schedule(new ModelPrinterFunction(), 0, 10000);
+        //timer.schedule(new ModelPrinterFunction(), 0, 10000);
+
+
         //tweetsFiltered.foreachRDD(new PrinterFunction());
-        tweetsVectorized.foreachRDD(new Function2<JavaRDD<Vector>, Time, Void>() {
+/*        tweetsVectorized.foreachRDD(new Function2<JavaRDD<Vector>, Time, Void>() {
             @Override
             public Void call(JavaRDD<Vector> vectorJavaRDD, Time time) throws Exception {
                 return null;
             }
+        });*/
+        results.foreachRDD(integerJavaRDD -> {
+            integerJavaRDD.foreach(new VoidFunction<Integer>() {
+                @Override
+                public void call(Integer integer) throws Exception {
+                    //System.out.println("Value is -> "+ integer);
+                }
+            });
         });
         //recentWordCounts.print();
         // Start the computation
