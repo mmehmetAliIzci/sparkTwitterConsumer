@@ -11,7 +11,7 @@ import java.util.TimerTask;
 public class ModelPrinterFunction extends TimerTask {
     @Override
     public void run() {
-        StreamingKMeans model = Application.model;
+/*        StreamingKMeans model = Application.model;
 
         Vector vec1 = model.model().clusterCenters()[0];
         Vector vec2 = model.model().clusterCenters()[1];
@@ -27,6 +27,6 @@ public class ModelPrinterFunction extends TimerTask {
             System.out.println("Number = " + vec2.toArray()[i]);
         }
 
-        System.out.println("--------------------------------------------------------");
+        System.out.println("--------------------------------------------------------");*/
     }
 }

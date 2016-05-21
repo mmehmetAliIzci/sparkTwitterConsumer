@@ -5,7 +5,6 @@ import java.util.regex.Pattern;
 
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.*;
-import org.apache.spark.mllib.clustering.StreamingKMeans;
 import org.apache.spark.mllib.linalg.Vector;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.Time;
@@ -26,7 +25,7 @@ public class Application {
     public static Integer numThreads = 2; // is the number of threads the kafka consumer should use
 
     private static final Pattern SPACE = Pattern.compile(" ");
-    static StreamingKMeans model = new StreamingKMeans();
+
 
 
     public static void main(String[] args) {
@@ -86,12 +85,6 @@ public class Application {
                 new TweetToVector());
 
 
-        model.setDecayFactor(0.5);
-        model.setK(2);
-        //.setRandomCenters(numDimensions, 0.0) on http://spark.apache.org/docs/latest/mllib-clustering.html#streaming-k-means
-        model.setRandomCenters(6, 100.0,2);
-        //model.trainOn(tweetsVectorized);
-        JavaDStream<Integer> results = model.predictOn(tweetsVectorized);
 
 
 /*
@@ -140,20 +133,13 @@ public class Application {
 
 
         //tweetsFiltered.foreachRDD(new PrinterFunction());
-/*        tweetsVectorized.foreachRDD(new Function2<JavaRDD<Vector>, Time, Void>() {
+        tweetsVectorized.foreachRDD(new Function2<JavaRDD<Vector>, Time, Void>() {
             @Override
             public Void call(JavaRDD<Vector> vectorJavaRDD, Time time) throws Exception {
                 return null;
             }
-        });*/
-        results.foreachRDD(integerJavaRDD -> {
-            integerJavaRDD.foreach(new VoidFunction<Integer>() {
-                @Override
-                public void call(Integer integer) throws Exception {
-                    //System.out.println("Value is -> "+ integer);
-                }
-            });
         });
+
         //recentWordCounts.print();
         // Start the computation
         jssc.start();

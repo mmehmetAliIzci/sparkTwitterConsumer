@@ -89,10 +89,11 @@ public class TweetToVector
 
             Vector dv = Vectors.dense(user_created_age_result,statuses_count_result,followers_ratio_result,description_length_result,text_lenght_result,hashtag_count_result);
 
-            System.out.println("Vector is  :- ");
+/*            System.out.println("Vector is  :- ");
             for (int i = 0; i<dv.size(); i++) {
                 System.out.println("Number = " + dv.toArray()[i]);
-            }
+            }*/
+            System.out.println(text);
 
             System.out.println("--------------------------------------------------------");
             //System.out.println("Beni Bırak" +dv);
