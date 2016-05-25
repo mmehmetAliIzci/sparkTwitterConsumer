@@ -47,13 +47,13 @@ public class TwitterTokenizer
                     try{
                         description_lenght = user.get("description").textValue().length();
                     }catch (NullPointerException e){
-                        System.out.println("Exception !" + user.toString());
+                        //System.out.println("Exception !" + user.toString());
                     }
                     text = root.get("text").textValue();
                     text_lenght =text.length();
 
                     Vector dv = Vectors.dense(text_lenght,description_lenght,followers_ratio,statuses_count,user_created_age);
-                    System.out.println("Beni Bırak" +dv);
+                    //System.out.println("Beni Bırak" +dv);
                     id = root.get("id").longValue();
 
                     return new Tuple2<Long, String>(id, text);

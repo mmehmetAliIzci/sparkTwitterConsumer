@@ -1,27 +1,33 @@
 package com.spark.application;
 
-import java.util.*;
-import java.util.regex.Pattern;
-
-import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.function.*;
-import org.apache.spark.mllib.linalg.Vector;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.streaming.Durations;
-import org.apache.spark.streaming.Time;
-import org.apache.spark.streaming.api.java.*;
-import org.apache.log4j.*;
-
-
+import org.apache.spark.streaming.api.java.JavaDStream;
+import org.apache.spark.streaming.api.java.JavaPairDStream;
+import org.apache.spark.streaming.api.java.JavaPairReceiverInputDStream;
+import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.apache.spark.streaming.kafka.KafkaUtils;
 import scala.Tuple2;
 
-import org.apache.spark.SparkConf;
-import org.apache.spark.streaming.kafka.KafkaUtils;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Timer;
+import java.util.regex.Pattern;
 
 public class Application {
 
     public static String zkQuorum = "localhost:2181"; //is a list of one or more zookeeper servers that make quorum
     public static String group = "spark-consumer-group";   //<group> is the name of kafka consumer group
     public static String topic = "twitter-topic";
+    public static String reciever_topic = "twitter-reciever";
     public static Integer numThreads = 2; // is the number of threads the kafka consumer should use
 
     private static final Pattern SPACE = Pattern.compile(" ");
@@ -30,12 +36,17 @@ public class Application {
 
     public static void main(String[] args) {
 
+        Properties properties = new Properties();
+        properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,"localhost:9092");
+        properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,StringSerializer.class.getName());
+        properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,StringSerializer.class.getName());
+
+
         SparkConf conf = new SparkConf()
                 .setAppName("Spark Streaming")
-                .set("spark.driver.allowMultipleContexts", "true")
-                .setMaster("local[2]");
+                .set("spark.driver.allowMultipleContexts", "true");
         // create streaming context
-        JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(4));
+        JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(2));
         Logger logger = Logger.getRootLogger();
         logger.setLevel(Level.ERROR);
 
@@ -59,8 +70,7 @@ public class Application {
         );
 
 
-        /*
-        Commented the Normal json => (id,tweetText)
+        //Commented the Normal json => (id,tweetText)
 
         JavaPairDStream<Long, String> tweets = json.mapToPair(
                 new TwitterTokenizer());
@@ -75,14 +85,14 @@ public class Application {
                 }
         );
 
-        Commented because we dont need any filters FOR NOW.
-        We may use json two times 1-> TweetToVector 2->TwitterTokenizer
+       // Commented because we dont need any filters FOR NOW.
+        //We may use json two times 1-> TweetToVector 2->TwitterTokenizer
 
         JavaDStream<Tuple2<Long, String>> tweetsFiltered = filtered.map(
-                new TextFilterFunction());*/
+                new TextFilterFunction());
 
-        JavaDStream<Vector> tweetsVectorized = json.map(
-                new TweetToVector());
+/*        JavaDStream<Vector> tweetsVectorized = json.map(
+                new TweetToVector());*/
 
 
 
@@ -133,14 +143,57 @@ public class Application {
 
 
         //tweetsFiltered.foreachRDD(new PrinterFunction());
-        tweetsVectorized.foreachRDD(new Function2<JavaRDD<Vector>, Time, Void>() {
+/*        tweetsVectorized.foreachRDD(new Function2<JavaRDD<Vector>, Time, Void>() {
             @Override
             public Void call(JavaRDD<Vector> vectorJavaRDD, Time time) throws Exception {
+                System.out.println();
                 return null;
             }
+        });*/
+
+
+
+/*        tweetsFiltered.foreachRDD(new Function<JavaRDD<Tuple2<Long, String>>, Void>() {
+            @Override
+            public Void call(JavaRDD<Tuple2<Long, String>> tuple2JavaRDD) throws Exception {
+                tuple2JavaRDD.foreach(new VoidFunction<Tuple2<Long, String>>() {
+                    @Override
+                    public void call(Tuple2<Long, String> longStringTuple2) throws Exception {
+                        kafka.javaapi.producer.Producer<String, String> producer = new kafka.javaapi.producer.Producer<String, String>(
+                                producerConfig);
+                        KeyedMessage<String, String> message = null;
+                        message = new KeyedMessage<String, String>(topic, longStringTuple2._2);
+                        producer.send(message);
+                        producer.close();
+                    }
+                });
+                return null;
+            }
+        });*/
+        tweetsFiltered.foreachRDD(tuple2JavaRDD -> {
+            tuple2JavaRDD.foreach(longStringTuple2 -> {
+                KafkaProducer<String, String> producer = new KafkaProducer<String, String>(
+                        properties);
+                System.out.println(longStringTuple2._2);
+                ProducerRecord<String, String> message = null;
+                message = new ProducerRecord<String, String>(reciever_topic, longStringTuple2._2);
+                producer.send(message);
+            });
+
+/*            tuple2JavaRDD.mapPartitions(tuple2Iterator -> {
+                KafkaProducer<String, String> producer = new KafkaProducer<String, String>(
+                        properties);
+                if(tuple2Iterator.hasNext()){
+                    ProducerRecord<String, String> message = null;
+                    message = new ProducerRecord<String, String>(reciever_topic, tuple2Iterator.next()._2);
+                    System.out.println("BADABADA");
+                    producer.send(message);
+                }
+                return null;
+            });*/
         });
 
-        //recentWordCounts.print();
+        //tweetsFiltered.print(1);
         // Start the computation
         jssc.start();
         jssc.awaitTermination();
