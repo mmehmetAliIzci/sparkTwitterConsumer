@@ -1,5 +1,6 @@
 /home/mali/project/sparkTwitterConsumer/src/main/java/com/spark/application/TextFilterFunction.java
 /home/mali/project/sparkTwitterConsumer/src/main/java/com/spark/application/TwitterFilterFunction.java
+/home/mali/project/sparkTwitterConsumer/src/main/java/com/spark/application/HttpNotifier.java
 /home/mali/project/sparkTwitterConsumer/src/main/java/com/spark/application/TwitterTokenizer.java
 /home/mali/project/sparkTwitterConsumer/src/main/java/com/spark/application/PrinterFunction.java
 /home/mali/project/sparkTwitterConsumer/src/main/java/com/spark/application/TwitterDateParser.java

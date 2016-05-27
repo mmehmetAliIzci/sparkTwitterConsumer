@@ -1,5 +1,12 @@
 package com.spark.application;
 
+import org.apache.http.NameValuePair;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.message.BasicNameValuePair;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -16,10 +23,7 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import scala.Tuple2;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Timer;
+import java.util.*;
 import java.util.regex.Pattern;
 
 public class Application {
@@ -30,6 +34,9 @@ public class Application {
     public static String reciever_topic = "twitter-reciever";
     public static Integer numThreads = 2; // is the number of threads the kafka consumer should use
 
+    public static CloseableHttpClient httpclient = HttpClients.createDefault();
+    public static HttpPost httpPost = new HttpPost("http://192.168.56.102:3000/post");
+    public static CloseableHttpResponse response2;
     private static final Pattern SPACE = Pattern.compile(" ");
 
 
@@ -44,9 +51,10 @@ public class Application {
 
         SparkConf conf = new SparkConf()
                 .setAppName("Spark Streaming")
-                .set("spark.driver.allowMultipleContexts", "true");
+                //.setMaster("local[2]");
+                .setMaster("spark://192.168.56.102:7077");
         // create streaming context
-        JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(2));
+        JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(5));
         Logger logger = Logger.getRootLogger();
         logger.setLevel(Level.ERROR);
 
@@ -58,6 +66,8 @@ public class Application {
         topicMap.put(topic, numThreads);
         JavaPairReceiverInputDStream<String, String> messages =
                 KafkaUtils.createStream(jssc, zkQuorum, group, topicMap);
+
+        System.out.println("Messages created !");
 
         JavaDStream<String> json = messages.map(
                 new Function<Tuple2<String, String>, String>() {
@@ -170,30 +180,38 @@ public class Application {
                 return null;
             }
         });*/
-        tweetsFiltered.foreachRDD(tuple2JavaRDD -> {
-            tuple2JavaRDD.foreach(longStringTuple2 -> {
-                KafkaProducer<String, String> producer = new KafkaProducer<String, String>(
-                        properties);
-                System.out.println(longStringTuple2._2);
-                ProducerRecord<String, String> message = null;
-                message = new ProducerRecord<String, String>(reciever_topic, longStringTuple2._2);
-                producer.send(message);
-            });
 
-/*            tuple2JavaRDD.mapPartitions(tuple2Iterator -> {
-                KafkaProducer<String, String> producer = new KafkaProducer<String, String>(
-                        properties);
-                if(tuple2Iterator.hasNext()){
-                    ProducerRecord<String, String> message = null;
-                    message = new ProducerRecord<String, String>(reciever_topic, tuple2Iterator.next()._2);
-                    System.out.println("BADABADA");
-                    producer.send(message);
+
+        tweetsFiltered.foreachRDD(tuple2JavaRDD -> {
+/*
+            tuple2JavaRDD.foreach(longStringTuple2 -> {
+                System.out.println("HELLo Motherfcuker ! " +longStringTuple2._2);
+            });
+*/
+
+            tuple2JavaRDD.foreachPartition(tuple2Iterator -> {
+                //KafkaProducer<String, String> producer = new KafkaProducer<String, String>(properties);
+                while(tuple2Iterator.hasNext()){
+                  //  ProducerRecord<String, String> message = null;
+                   // message = new ProducerRecord<String, String>(reciever_topic, tuple2Iterator.next()._2);
+                    //tweetsFiltered.print(1);
+                    String tweet = tuple2Iterator.next()._2;
+                    List<NameValuePair> nvps = new ArrayList<NameValuePair>();
+                    nvps.add(new BasicNameValuePair("tweet", tweet ));
+                    httpPost.setEntity(new UrlEncodedFormEntity(nvps));
+                    response2 = httpclient.execute(httpPost);
+                    System.out.println(tweet);
+                    response2.close();
+                   // producer.send(message);
                 }
-                return null;
-            });*/
+
+            });
         });
 
+        //tweetsFiltered.foreachRDD(new PrinterFunction());
+
         //tweetsFiltered.print(1);
+        
         // Start the computation
         jssc.start();
         jssc.awaitTermination();
